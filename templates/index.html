@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Home</title>
+</head>
+<body>
+    <h3>Hi, {{ user.name }}</h3>
+    <p>Naver ID: {{ user.naver_id }}</p>
+    <p>number: {{ user.id }}</p>
+    {% if user.profile_image %}
+    <img src="{{ user.profile_image }}" width="80"/>
+    {% endif %}
+    <br/>
+    <a href="/logout">Logout</a>
+</body>
+</html>
