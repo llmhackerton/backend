@@ -24,6 +24,7 @@ import io
 import uuid
 from fastapi.staticfiles import StaticFiles
 
+
 load_dotenv()
 
 app = FastAPI()
@@ -44,6 +45,23 @@ oauth.register(
 )
 
 BASE_URL = os.getenv("BASE_URL", "http://localhost:8000")
+
+from fastapi.middleware.cors import CORSMiddleware
+
+origins = [
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 def get_current_user(request: Request):
     return request.session.get("user")
