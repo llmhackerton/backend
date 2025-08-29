@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>{% block title %}동화 앱{% endblock %}</title>
+  <style>
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; margin: 0; background:#fafafa; color:#222; }
+    header, footer { background:#fff; border-bottom:1px solid #eee; }
+    header .wrap, main, footer .wrap { max-width: 900px; margin: 0 auto; padding: 16px; }
+    nav a { margin-right: 12px; text-decoration: none; color: #0366d6; }
+    .btn { display:inline-block; padding:8px 14px; border-radius:8px; background:#0366d6; color:#fff; text-decoration:none; border:0; cursor:pointer; }
+    .btn.secondary { background:#555; }
+    .card { background:#fff; border:1px solid #eee; border-radius:12px; padding:16px; }
+    .grid { display:grid; grid-template-columns: 1fr; gap:16px; }
+    @media (min-width: 700px){ .grid-2 { grid-template-columns: 1fr 1fr; } }
+    label { display:block; font-size:14px; color:#555; margin:10px 0 6px; }
+    input, select { width:100%; padding:10px 12px; border:1px solid #ddd; border-radius:8px; font-size:15px; }
+    .row { display:flex; gap:12px; align-items:center; }
+    .row > * { flex: 1; }
+    .muted { color:#666; font-size: 14px; }
+  </style>
+  {% block head %}{% endblock %}
+</head>
+<body>
+<header>
+  <div class="wrap row">
+    <div><strong>동화 앱</strong></div>
+    <nav style="text-align:right">
+      {% if user %}
+        <span class="muted">{{ user.name or "사용자" }}</span>
+        <a href="{{ request.url_for('home') }}">홈</a>
+        <a href="{{ request.url_for('profile') }}">프로필</a>
+        <a href="{{ request.url_for('logout') }}">로그아웃</a>
+      {% else %}
+        <a class="btn" href="{{ request.url_for('login_naver') }}">네이버로 로그인</a>
+      {% endif %}
+    </nav>
+  </div>
+</header>
+
+<main>
+  <div class="wrap">
+    {% block content %}{% endblock %}
+  </div>
+</main>
+
+<footer>
+  <div class="wrap muted">© {{  now().year if now else '' }}</div>
+</footer>
+
+{% block scripts %}{% endblock %}
+</body>
+</html>

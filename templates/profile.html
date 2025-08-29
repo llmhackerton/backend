@@ -1,0 +1,97 @@
+{% extends "base.html" %}
+{% block title %}프로필{% endblock %}
+
+{% block content %}
+<div class="grid grid-2">
+  <div class="card">
+    <h2>프로필</h2>
+    <p class="muted">로그인 정보</p>
+    <ul>
+      <li><strong>ID:</strong> {{ user.id }}</li>
+      <li><strong>네이버 ID:</strong> {{ user.naver_id }}</li>
+      <li><strong>이름:</strong> {{ user.name }}</li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <h3>아이 정보 수정</h3>
+    <form id="profile-form">
+      <label>아이 이름</label>
+      <input name="child_name" placeholder="예: 민준" value="{{ user.child_name or '' }}"/>
+
+      <div class="row">
+        <div>
+          <label>아이 나이</label>
+          <input name="child_age" type="number" min="0" placeholder="예: 7"
+                 value="{{ user.child_age if user.child_age is not none else '' }}">
+        </div>
+        <div>
+          <label>아이 성별</label>
+          <select name="child_gender">
+            {% set cg = (user.child_gender or '')|lower %}
+            <option value="" {{ 'selected' if cg == '' else '' }}>선택 안 함</option>
+            <option value="male" {{ 'selected' if cg == 'male' else '' }}>남</option>
+            <option value="female" {{ 'selected' if cg == 'female' else '' }}>여</option>
+            <option value="non-binary" {{ 'selected' if cg == 'non-binary' else '' }}>논바이너리</option>
+            <option value="unknown" {{ 'selected' if cg == 'unknown' else '' }}>모름</option>
+          </select>
+        </div>
+      </div>
+
+      <label>아이 성격</label>
+      <input name="child_pers" placeholder="예: 밝고 상냥함" value="{{ user.child_pers or '' }}"/>
+
+      <div class="row" style="margin-top:14px">
+        <button class="btn" type="submit">저장</button>
+        <a class="btn secondary" href="{{ request.url_for('home') }}">돌아가기</a>
+      </div>
+      <div id="msg" class="muted" style="margin-top:8px;"></div>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const form = document.getElementById('profile-form');
+const msg  = document.getElementById('msg');
+
+form.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const fd = new FormData(form);
+  const payload = {};
+
+  for (const [k, v] of fd.entries()) {
+    if (v === '' || v === null) continue;              // 비어있으면 제외 → exclude_unset 효과
+    if (k === 'child_age') {
+      const n = Number(v);
+      if (!Number.isNaN(n)) payload[k] = n;
+      continue;
+    }
+    payload[k] = v;
+  }
+
+  try {
+    const res = await fetch("/profile/update", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+
+    if (res.redirected) {
+      window.location.href = res.url;
+      return;
+    }
+    if (res.ok) {
+      msg.textContent = "저장되었습니다.";
+      setTimeout(() => window.location.href = "/profile", 400);
+    } else {
+      msg.textContent = "저장 실패: " + res.status;
+    }
+  } catch (err) {
+    console.error(err);
+    msg.textContent = "네트워크 오류가 발생했습니다.";
+  }
+});
+</script>
+{% endblock %}

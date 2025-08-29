@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <title>동화책 생성기 · CLOVA X + Gemini</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <style>
+    :root { --bg:#f6f7fb; --card:#fff; --muted:#667085; --b:#e6e8ec; --ink:#111; }
+    *{box-sizing:border-box}
+    body{font-family:-apple-system,BlinkMacSystemFont,'Noto Sans KR',system-ui,sans-serif;background:var(--bg);margin:0;color:var(--ink)}
+    .wrap{max-width:1100px;margin:32px auto;padding:0 16px;display:grid;grid-template-columns:420px 1fr;gap:20px}
+    @media (max-width:960px){.wrap{grid-template-columns:1fr}}
+    .panel{background:var(--card);border:1px solid var(--b);border-radius:16px;box-shadow:0 8px 24px rgba(0,0,0,.06)}
+    .head{padding:14px 16px;border-bottom:1px solid var(--b);font-weight:700}
+    .form{padding:16px;display:grid;gap:12px}
+    label{font-size:13px;color:var(--muted)}
+    input,textarea{width:100%;padding:10px 12px;border:1px solid var(--b);border-radius:10px;background:#fafbfc;outline:none}
+    textarea{min-height:120px;resize:vertical}
+    .row{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+    .btn{display:inline-flex;align-items:center;gap:8px;padding:10px 14px;border-radius:10px;border:1px solid var(--b);background:#111;color:#fff;cursor:pointer}
+    .btn[disabled]{opacity:.6;cursor:not-allowed}
+    .muted{color:var(--muted);font-size:12px}
+    .preview{padding:16px}
+    .story-title{margin:0 0 8px 0;font-size:20px}
+    .scene{display:grid;grid-template-columns:1fr 1fr;gap:16px;padding:16px;border:1px solid var(--b);border-radius:12px;background:#fff}
+    .scene + .scene{margin-top:14px}
+    @media (max-width:800px){.scene{grid-template-columns:1fr}}
+    .scene h4{margin:0 0 6px 0}
+    .scene p{margin:0;line-height:1.6}
+    .scene figure{margin:0}
+    .scene img{width:100%;border-radius:12px;border:1px solid var(--b);display:block}
+    .code{font-family:ui-monospace,Consolas,monospace;background:#f1f3f6;border:1px solid var(--b);border-radius:10px;padding:10px;white-space:pre-wrap}
+    .divider{height:1px;background:var(--b);margin:12px 0}
+    .skeleton{aspect-ratio:1/1;border-radius:12px;border:1px dashed var(--b);display:grid;place-items:center;color:var(--muted)}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <section class="panel">
+      <div class="head">🧸 동화 만들기</div>
+      <div class="form">
+        <div>
+          <label>동화 제목</label>
+          <input id="title" placeholder="예: 민준이의 우주 대모험" />
+        </div>
+        <div class="row">
+          <div>
+            <label>주인공 이름</label>
+            <input id="hero" placeholder="아이 이름" />
+          </div>
+          <div>
+            <label>나이</label>
+            <input id="age" type="number" min="1" max="12" placeholder="5" />
+          </div>
+        </div>
+        <div>
+          <label>주제/분위기 키워드</label>
+          <input id="theme" placeholder="따뜻함, 용기, 모험, 우주..." />
+        </div>
+        <div>
+          <label>추가 지시 (선택)</label>
+          <textarea id="extra" placeholder="3~5개의 장면으로 나눠줘, 각 장면은 2~3문장으로 간결하게 등"></textarea>
+        </div>
+        <div>
+          <button id="run" class="btn">✨ 동화 만들고 이미지 생성</button>
+          <span class="muted">CLOVA X로 텍스트 → Gemini로 이미지</span>
+        </div>
+        <div class="muted">로그인 필요 시 자동 안내됩니다.</div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="head">미리보기</div>
+      <div class="preview" id="preview">
+        입력을 채우고 “동화 만들고 이미지 생성”을 눌러 주세요.
+      </div>
+    </section>
+  </div>
+
+<script>
+const els = {
+  title: document.getElementById("title"),
+  hero: document.getElementById("hero"),
+  age: document.getElementById("age"),
+  theme: document.getElementById("theme"),
+  extra: document.getElementById("extra"),
+  run: document.getElementById("run"),
+  preview: document.getElementById("preview"),
+};
+
+function setLoading(v){
+  els.run.disabled = v;
+  els.run.textContent = v ? "⏳ 생성 중..." : "✨ 동화 만들고 이미지 생성";
+}
+
+function escapeHtml(s){
+  return (s||"").replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+}
+
+function buildScenesWithPlaceholders(title, paragraphs){
+  // 이미지가 아직 없을 때 텍스트와 자리표시자(스켈레톤)로 먼저 렌더
+  const blocks = paragraphs.map((p,i)=>`
+    <div class="scene">
+      <div>
+        <h4>${escapeHtml(p.title || `장면 ${i+1}`)}</h4>
+        <p>${escapeHtml(p.text || "")}</p>
+      </div>
+      <figure>
+        <div class="skeleton">이미지 생성 중…</div>
+      </figure>
+    </div>
+  `).join("");
+  return `<h3 class="story-title">${escapeHtml(title)}</h3>${blocks}`;
+}
+
+function mergeImagesIntoScenes(title, paragraphs, images){
+  // idx(1-base) 기준으로 이미지 매칭
+  const byIdx = {};
+  (images||[]).forEach(img => { byIdx[Number(img.idx)] = img; });
+
+  const blocks = paragraphs.map((p,i)=>{
+    const idx = i+1;
+    const found = byIdx[idx];
+    let imgHtml = `<div class="skeleton">이미지 없음</div>`;
+    if (found && found.file_path) {
+      const src = "/" + String(found.file_path).replace(/^\/?/, "");
+      imgHtml = `<img src="${src}" alt="scene image ${idx}" />`;
+    }
+    return `
+      <div class="scene">
+        <div>
+          <h4>${escapeHtml(p.title || `장면 ${idx}`)}</h4>
+          <p>${escapeHtml(p.text || "")}</p>
+        </div>
+        <figure>${imgHtml}</figure>
+      </div>
+    `;
+  }).join("");
+
+  return `<h3 class="story-title">${escapeHtml(title)}</h3>${blocks}`;
+}
+
+async function generateOnce(){
+  const title = els.title.value.trim();
+  const hero  = els.hero.value.trim();
+  const ageRaw = (els.age.value||"").trim();
+  const age = ageRaw === "" ? null : Number(ageRaw);
+  const theme = els.theme.value.trim();
+  const extra = els.extra.value.trim();
+
+  if(!title){
+    alert("동화 제목을 입력해 주세요.");
+    els.title.focus(); return;
+  }
+
+  setLoading(true);
+  els.preview.innerHTML = "CLOVA X로 동화 생성 중...";
+
+  try {
+    // 1) CLOVA X로 텍스트 생성
+    const body1 = { title, hero, theme, extra };
+    if (age !== null && !Number.isNaN(age)) body1.age = age;
+
+    const r1 = await fetch("/clova/make", {
+      method: "POST",
+      headers: {"Content-Type":"application/json", "Accept":"application/json"},
+      body: JSON.stringify(body1)
+    });
+
+    const ct1 = r1.headers.get("content-type") || "";
+    if(r1.status === 401){
+      els.preview.innerHTML = "🔐 로그인 필요합니다. <a href='/login/naver'>네이버로 로그인</a>";
+      return;
+    }
+    if(!r1.ok || !ct1.includes("application/json")){
+      els.preview.textContent = "❌ CLOVA 응답 오류"; return;
+    }
+
+    const story = await r1.json(); // {title, paragraphs[]}
+    if(!story || !Array.isArray(story.paragraphs) || story.paragraphs.length === 0){
+      els.preview.textContent = "⚠️ 문단이 비어있어요.";
+      return;
+    }
+
+    // 텍스트 먼저 화면에 배치 (스켈레톤 이미지)
+    els.preview.innerHTML = buildScenesWithPlaceholders(story.title, story.paragraphs);
+
+    // 2) 서버 저장 + Gemini 이미지 생성
+    const r2 = await fetch("/story/make", {
+      method: "POST",
+      headers: {"Content-Type":"application/json", "Accept":"application/json"},
+      body: JSON.stringify(story)
+    });
+
+    const ct2 = r2.headers.get("content-type") || "";
+    if(r2.status === 401){
+      els.preview.innerHTML = "🔐 로그인 필요합니다. <a href='/login/naver'>네이버로 로그인</a>";
+      return;
+    }
+    if(!r2.ok || !ct2.includes("application/json")){
+      els.preview.textContent = "❌ 이미지 생성 오류"; return;
+    }
+
+    const made = await r2.json(); // {story_id, title, images: [{idx,file_path,...}]}
+    els.preview.innerHTML = mergeImagesIntoScenes(story.title, story.paragraphs, made.images || []);
+  } catch(e){
+    els.preview.textContent = "❌ 네트워크/스크립트 오류: " + e;
+  } finally {
+    setLoading(false);
+  }
+}
+
+els.run.addEventListener("click", (e)=>{ e.preventDefault(); generateOnce(); });
+</script>
+</body>
+</html>

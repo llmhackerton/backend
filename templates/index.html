@@ -1,16 +1,27 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Home</title>
-</head>
-<body>
-    <h3>Hi, {{ user.name }}</h3>
-    <p>Naver ID: {{ user.naver_id }}</p>
-    <p>number: {{ user.id }}</p>
-    {% if user.profile_image %}
-    <img src="{{ user.profile_image }}" width="80"/>
-    {% endif %}
-    <br/>
-    <a href="/logout">Logout</a>
-</body>
-</html>
+{% extends "base.html" %}
+{% block title %}홈{% endblock %}
+{% block content %}
+  <div class="grid grid-2">
+    <div class="card">
+      <h2>안녕하세요, {{ user.name or "사용자" }}님</h2>
+      <p class="muted">프로필에서 아이 정보를 채우면 더 맞춤형 이야기로 만들어드려요.</p>
+      <div class="row">
+        <a class="btn" href="{{ request.url_for('profile') }}">프로필 보기</a>
+        <a class="btn secondary" href="{{ request.url_for('logout') }}">로그아웃</a>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>내 정보 요약</h3>
+      <ul>
+        <li><strong>네이버 ID:</strong> {{ user.naver_id }}</li>
+        <li><strong>아이 이름:</strong> {{ user.child_name or "미입력" }}</li>
+        <li><strong>아이 나이:</strong> {{ user.child_age if user.child_age is not none else "미입력" }}</li>
+        <li><strong>아이 성격:</strong> {{ user.child_pers or "미입력" }}</li>
+        <li><strong>아이 성별:</strong> {{ user.child_gender or "미입력" }}</li>
+      </ul>
+      <a class="btn" href="{{ request.url_for('profile') }}">수정하러 가기</a>
+    </div>
+  </div>
+  <a href="/make/storybook">생성</a>
+{% endblock %}

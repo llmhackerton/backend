@@ -1,10 +1,11 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Login</title>
-</head>
-<body>
-    <h2>Please login</h2>
-    <a href="/login/naver">Login with NAVER</a>
-</body>
-</html>
+{% extends "base.html" %}
+{% block title %}로그인{% endblock %}
+{% block content %}
+  <div class="grid">
+    <div class="card" style="text-align:center">
+      <h2>어서 오세요 👋</h2>
+      <p class="muted">네이버 계정으로 로그인해 주세요.</p>
+      <a class="btn" href="{{ request.url_for('login_naver') }}">네이버로 로그인</a>
+    </div>
+  </div>
+{% endblock %}
